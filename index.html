@@ -1,11 +1,14 @@
-<html>
+<!DOCTYPE html>
+<html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Biblioteca Virtual — E.E. Bárbara Heliodora</title>
 
+  <!-- Ícone da aba do navegador (favicon) -->
   <link rel="icon" type="image/jpeg" href="logo.jpg" />
 
+  <!-- Meta tags de compartilhamento (aparecem quando o link é enviado no WhatsApp, Instagram etc) -->
   <meta name="description" content="Biblioteca Virtual da E.E. Bárbara Heliodora — consulte o acervo, agende livros e acompanhe empréstimos." />
   <meta property="og:title" content="Biblioteca Virtual — E.E. Bárbara Heliodora" />
   <meta property="og:description" content="Consulte o acervo, agende livros e acompanhe empréstimos da biblioteca da escola." />
@@ -19,12 +22,29 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <style>
+    :root {
+      --cor-fundo-pagina: #16255c;
+      --cor-fundo-secao: #ffffff;
+      --cor-texto-secao: #1a3a5c;
+      --cor-fundo-item: #e3edfb;
+      --cor-borda: #d6e4f7;
+      --cor-texto-autor: #2c5aa0;
+    }
+    body.modo-escuro {
+      --cor-fundo-pagina: #0b1330;
+      --cor-fundo-secao: #1e2a4a;
+      --cor-texto-secao: #dce8ff;
+      --cor-fundo-item: #2a3a5f;
+      --cor-borda: #3a4a70;
+      --cor-texto-autor: #9dc0f2;
+    }
     body {
       font-family: Arial, sans-serif;
       margin: 20px;
-      background: #16255c;
+      background: var(--cor-fundo-pagina);
       position: relative;
       overflow-x: hidden;
     }
@@ -64,18 +84,19 @@
       padding-bottom: 4px;
     }
     section {
-      background: #fff;
+      background: var(--cor-fundo-secao);
+      color: var(--cor-texto-secao);
       padding: 12px 15px;
       margin-bottom: 16px;
       border-radius: 16px;
       box-shadow: 0 0 10px #cfe0f5;
-      border: 1px solid #d6e4f7;
+      border: 1px solid var(--cor-borda);
     }
     label {
       font-weight: bold;
       display: block;
       margin-top: 10px;
-      color: #1a3a5c;
+      color: var(--cor-texto-secao);
     }
     input, select, textarea, button {
       margin-top: 5px;
@@ -106,7 +127,8 @@
       padding-left: 0;
     }
     ul li {
-      background: #e3edfb;
+      background: var(--cor-fundo-item);
+      color: var(--cor-texto-secao);
       margin-bottom: 5px;
       padding: 10px 14px;
       border-radius: 14px;
@@ -210,7 +232,7 @@
       margin-top: 8px;
     }
     .card-estatistica {
-      background: #e3edfb;
+      background: var(--cor-fundo-item);
       border-radius: 14px;
       padding: 10px 14px;
       min-width: 120px;
@@ -225,6 +247,14 @@
     .card-estatistica .rotulo {
       font-size: 0.78rem;
       color: #3a6ea8;
+    }
+    .autor-texto {
+      display: block;
+      font-size: 0.82rem;
+      font-weight: 600;
+      font-style: italic;
+      color: var(--cor-texto-autor);
+      margin-top: 2px;
     }
     li.item-disponivel {
       flex-direction: column;
@@ -316,6 +346,22 @@
       height: 16px;
       fill: #ffffff;
     }
+    #temaBtn {
+      position: fixed;
+      top: 16px;
+      right: 54px;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: #0d47a1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 0 6px rgba(13, 71, 161, 0.4);
+      z-index: 50;
+      font-size: 15px;
+    }
     #painelAdmin, #loginPanel {
       display: none;
     }
@@ -336,7 +382,7 @@
       display: flex;
     }
     .modal-box {
-      background: #fff;
+      background: var(--cor-fundo-secao);
       border-radius: 18px;
       padding: 20px;
       max-width: 360px;
@@ -344,7 +390,7 @@
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
     }
     .modal-box p {
-      color: #1a3a5c;
+      color: var(--cor-texto-secao);
       margin: 0 0 6px;
       line-height: 1.4;
     }
@@ -374,6 +420,7 @@
   </style>
 </head>
 <body>
+  <!-- Modal estilizado, usado no lugar de alert()/confirm()/prompt() do navegador -->
   <div id="modalOverlay" class="modal-overlay">
     <div class="modal-box">
       <p id="modalMensagem"></p>
@@ -395,12 +442,17 @@
   <div id="trigger" title="Área da Bibliotecária">
     <svg viewBox="0 0 24 24"><path d="M12 12c2.7 0 4.9-2.2 4.9-4.9S14.7 2.2 12 2.2 7.1 4.4 7.1 7.1 9.3 12 12 12zm0 2.5c-3.3 0-9.8 1.6-9.8 4.9v2.4h19.6v-2.4c0-3.3-6.5-4.9-9.8-4.9z"/></svg>
   </div>
+  <div id="temaBtn" title="Alternar tema claro/escuro">🌙</div>
 
   <section id="loginPanel">
     <h2>Login da Bibliotecária</h2>
     <form id="loginForm">
+      <label for="adminEmail">Email:</label>
+      <input type="email" id="adminEmail" autocomplete="username" required />
+
       <label for="adminPassword">Senha:</label>
-      <input type="password" id="adminPassword" required />
+      <input type="password" id="adminPassword" autocomplete="current-password" required />
+
       <button type="submit">Entrar</button>
     </form>
     <p id="loginFeedback"></p>
@@ -411,6 +463,14 @@
     <div id="estatisticasContainer"></div>
 
     <h2 style="margin-top:18px;">Adicionar Livro</h2>
+
+    <button type="button" id="scanBtn" class="btn-secundario" style="width:auto; padding:6px 16px; border-radius:999px;">📷 Escanear código de barras (ISBN)</button>
+    <div id="scanContainer" style="display:none; margin-top:10px;">
+      <div id="scanReader" style="width:100%; max-width:320px; border-radius:14px; overflow:hidden;"></div>
+      <button type="button" id="scanCancelBtn" class="btn-perigo" style="width:auto; padding:6px 16px; border-radius:999px; margin-top:8px;">Cancelar leitura</button>
+      <p id="scanFeedback" style="color:#5c7ca3; font-size:0.85rem;"></p>
+    </div>
+
     <form id="addBookForm">
       <label for="newBookTitle">Título do Livro:</label>
       <input type="text" id="newBookTitle" required />
@@ -551,23 +611,60 @@
     return await abrirModal({ mensagem, comInput: true, valorInicial, comCancelar: true, textoConfirmar: "OK", textoCancelar: "Cancelar" });
   }
 
-  // A senha não fica em texto puro no código — guardamos só o hash SHA-256 dela.
-  // Aviso importante: isso NÃO é segurança real, porque tudo roda no navegador do
-  // usuário. Alguém disposto a tentar senhas offline contra esse hash ainda pode
-  // descobrir a senha original. Pra proteção de verdade, seria preciso um servidor
-  // validando o login (fora do que dá pra fazer só com HTML/JS no cliente).
-  const ADMIN_PASSWORD_HASH = "31756be9e088f88f6be86a9dd50590b6b0fddd357a7ba8d18f673adc340b7314";
-  const ADMIN_SESSION_KEY = "biblioteca-sessao-bibliotecaria";
-  // Se já tinha feito login antes neste navegador, continua logada mesmo
-  // depois de atualizar a página — sem precisar digitar a senha de novo.
-  let isAdminLoggedIn = (localStorage.getItem(ADMIN_SESSION_KEY) === "true");
+  // ---- Autenticação da Bibliotecária (Supabase Auth) ----
+  // A senha NÃO fica guardada neste arquivo. O Supabase Auth faz a validação
+  // da senha e mantém a sessão do usuário autenticado.
+  //
+  // IMPORTANTE: substitua os dois valores abaixo pelos dados públicos do seu
+  // projeto Supabase. Nunca coloque uma service_role key neste arquivo.
+  const SUPABASE_URL = "https://pzisjwgzwlqwxhrrysil.supabase.co";
+  const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_AxH0vZYkqzVTLjG-xlcFMg_LlRsIPDb";
 
-  async function hashText(text) {
-    const data = new TextEncoder().encode(text);
-    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-    return Array.from(new Uint8Array(hashBuffer))
-      .map(b => b.toString(16).padStart(2, "0"))
-      .join("");
+  const supabaseClient = supabase.createClient(
+    SUPABASE_URL,
+    SUPABASE_PUBLISHABLE_KEY
+  );
+
+  let isAdminLoggedIn = false;
+  let currentSupabaseUser = null;
+
+  async function atualizarSessaoAdmin(session) {
+    currentSupabaseUser = session ? session.user : null;
+    isAdminLoggedIn = !!currentSupabaseUser;
+
+    const painel = document.getElementById("painelAdmin");
+    const login = document.getElementById("loginPanel");
+    const atrasadosBtn = document.getElementById("abaAtrasadosBtn");
+
+    if (isAdminLoggedIn) {
+      painel.style.display = "block";
+      login.style.display = "none";
+      atrasadosBtn.style.display = "";
+    } else {
+      painel.style.display = "none";
+      login.style.display = "none";
+      atrasadosBtn.style.display = "none";
+    }
+
+    renderLists();
+  }
+
+  async function inicializarAutenticacao() {
+    const { data, error } = await supabaseClient.auth.getSession();
+
+    if (error) {
+      console.error("Erro ao recuperar sessão do Supabase:", error);
+      await atualizarSessaoAdmin(null);
+      return;
+    }
+
+    await atualizarSessaoAdmin(data.session);
+
+    supabaseClient.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "TOKEN_REFRESHED") {
+        atualizarSessaoAdmin(session);
+      }
+    });
   }
 
   // Credenciais do EmailJS (usadas no formulário de contato)
@@ -649,11 +746,7 @@
     renderContactRecipients();
     document.getElementById("bookLimitInput").value = bookLimit;
 
-    // Se já estava logada (sessão salva), mostra o painel e a aba Atrasados
-    // direto, sem pedir senha de novo.
-    if (isAdminLoggedIn) {
-      document.getElementById("abaAtrasadosBtn").style.display = "";
-    }
+    // A visibilidade do painel administrativo é controlada pela sessão do Supabase.
   }
 
   // ---- Abas ----
@@ -857,9 +950,7 @@
     infoTitulo.appendChild(tituloTexto);
     if (book.autor && book.autor.trim()) {
       const autorTexto = document.createElement("span");
-      autorTexto.style.display = "block";
-      autorTexto.style.fontSize = "0.78rem";
-      autorTexto.style.color = "#5c7ca3";
+      autorTexto.className = "autor-texto";
       autorTexto.textContent = book.autor.trim();
       infoTitulo.appendChild(autorTexto);
     }
@@ -1283,21 +1374,37 @@
 
   document.getElementById("loginForm").addEventListener("submit", async (e) => {
     e.preventDefault();
-    const inputPassword = document.getElementById("adminPassword").value;
-    const feedback = document.getElementById("loginFeedback");
-    const inputHash = await hashText(inputPassword);
 
-    if (inputHash === ADMIN_PASSWORD_HASH) {
-      isAdminLoggedIn = true;
-      localStorage.setItem(ADMIN_SESSION_KEY, "true");
-      document.getElementById("painelAdmin").style.display = "block";
-      document.getElementById("loginPanel").style.display = "none";
-      document.getElementById("abaAtrasadosBtn").style.display = "";
-      feedback.textContent = "";
-      renderLists();
-    } else {
-      feedback.textContent = "Senha incorreta. Tente novamente.";
+    const email = document.getElementById("adminEmail").value.trim();
+    const password = document.getElementById("adminPassword").value;
+    const feedback = document.getElementById("loginFeedback");
+    const btn = e.target.querySelector("button[type=\"submit\"]");
+
+    if (!email || !password) {
+      feedback.textContent = "Informe seu email e sua senha.";
+      return;
     }
+
+    btn.disabled = true;
+    btn.textContent = "Entrando...";
+    feedback.textContent = "";
+
+    const { data, error } = await supabaseClient.auth.signInWithPassword({
+      email,
+      password
+    });
+
+    if (error) {
+      console.error("Erro no login:", error);
+      feedback.textContent = "Email ou senha incorretos.";
+    } else {
+      document.getElementById("adminPassword").value = "";
+      feedback.textContent = "";
+      await atualizarSessaoAdmin(data.session);
+    }
+
+    btn.disabled = false;
+    btn.textContent = "Entrar";
   });
 
   document.getElementById("addBookForm").addEventListener("submit", async (e) => {
@@ -1315,6 +1422,87 @@
       e.target.reset();
     }
   });
+
+  // ---- Leitor de código de barras (ISBN) / QR Code ----
+  // Usa a câmera do celular/computador pra ler o código de barras do livro
+  // (o ISBN, que é o código de barras padrão em livros) e busca automaticamente
+  // o título e autor numa base de dados gratuita (Open Library).
+  let scannerAtivo = null;
+
+  document.getElementById("scanBtn").addEventListener("click", async () => {
+    if (!isAdminLoggedIn) { await modalAlerta("Somente a bibliotecária pode escanear livros."); return; }
+
+    const container = document.getElementById("scanContainer");
+    const feedback = document.getElementById("scanFeedback");
+    container.style.display = "block";
+    feedback.textContent = "Aponte a câmera para o código de barras (ISBN) na contracapa do livro.";
+
+    try {
+      scannerAtivo = new Html5Qrcode("scanReader");
+      await scannerAtivo.start(
+        { facingMode: "environment" },
+        {
+          fps: 10,
+          qrbox: { width: 250, height: 150 },
+          formatsToSupport: [
+            Html5QrcodeSupportedFormats.EAN_13,
+            Html5QrcodeSupportedFormats.EAN_8,
+            Html5QrcodeSupportedFormats.QR_CODE
+          ]
+        },
+        onCodigoLido,
+        () => { /* erro de leitura em cada frame — ignorar, é normal */ }
+      );
+    } catch (err) {
+      console.error("Erro ao acessar a câmera:", err);
+      feedback.textContent = "Não foi possível acessar a câmera. Verifique se você deu permissão ao navegador.";
+    }
+  });
+
+  async function pararScanner() {
+    if (scannerAtivo) {
+      try {
+        await scannerAtivo.stop();
+        scannerAtivo.clear();
+      } catch (err) {
+        console.error("Erro ao parar o scanner:", err);
+      }
+      scannerAtivo = null;
+    }
+    document.getElementById("scanContainer").style.display = "none";
+  }
+
+  document.getElementById("scanCancelBtn").addEventListener("click", pararScanner);
+
+  async function onCodigoLido(codigoLido) {
+    const feedback = document.getElementById("scanFeedback");
+    feedback.textContent = `Código lido: ${codigoLido}. Buscando informações...`;
+    await pararScanner();
+
+    // Só livros têm ISBN (8 ou 13 dígitos numéricos); um QR Code comum não serve pra essa busca
+    const apenasNumeros = codigoLido.replace(/[^0-9]/g, "");
+    if (apenasNumeros.length < 8) {
+      await modalAlerta(`Código lido: ${codigoLido}. Não parece ser um ISBN válido — preencha os dados manualmente.`);
+      return;
+    }
+
+    try {
+      const resposta = await fetch(`https://openlibrary.org/api/books?bibkeys=ISBN:${apenasNumeros}&format=json&jscmd=data`);
+      const dados = await resposta.json();
+      const info = dados[`ISBN:${apenasNumeros}`];
+
+      if (info) {
+        document.getElementById("newBookTitle").value = info.title || "";
+        document.getElementById("newBookAutor").value = (info.authors && info.authors.length) ? info.authors.map(a => a.name).join(", ") : "";
+        await modalAlerta(`Livro encontrado: "${info.title || "sem título"}". Confira os dados, escolha o gênero e clique em Adicionar Livro.`);
+      } else {
+        await modalAlerta(`Código ${apenasNumeros} lido, mas não encontrei esse livro na base de dados. Preencha o título e autor manualmente.`);
+      }
+    } catch (err) {
+      console.error("Erro ao buscar dados do livro:", err);
+      await modalAlerta(`Código ${apenasNumeros} lido, mas não consegui buscar os dados agora (verifique a internet). Preencha manualmente.`);
+    }
+  }
 
   document.getElementById("saveEmailsBtn").addEventListener("click", async () => {
     if (!isAdminLoggedIn) { await modalAlerta("Somente a bibliotecária pode editar os emails."); return; }
@@ -1373,15 +1561,18 @@
   });
 
   document.getElementById("logoutBtn").addEventListener("click", async () => {
-    const confirmouSaida = await modalConfirmar("Sair da conta da bibliotecária neste navegador?");
+    const confirmouSaida = await modalConfirmar("Sair da conta da bibliotecária?");
     if (!confirmouSaida) return;
-    isAdminLoggedIn = false;
-    localStorage.removeItem(ADMIN_SESSION_KEY);
-    document.getElementById("painelAdmin").style.display = "none";
-    document.getElementById("abaAtrasadosBtn").style.display = "none";
-    // Se estava na aba Atrasados, volta pra Início
+
+    const { error } = await supabaseClient.auth.signOut();
+    if (error) {
+      console.error("Erro ao sair:", error);
+      await modalAlerta("Não foi possível sair da conta agora. Tente novamente.");
+      return;
+    }
+
+    await atualizarSessaoAdmin(null);
     trocarAba("abaInicio", "abaInicioBtn");
-    renderLists();
   });
 
   document.getElementById("filtroGenero").addEventListener("change", renderDisponiveis);
@@ -1445,6 +1636,20 @@
     }
   });
 
+  // ---- Alternar tema claro/escuro ----
+  const temaBtn = document.getElementById("temaBtn");
+  if (localStorage.getItem("biblioteca-tema") === "escuro") {
+    document.body.classList.add("modo-escuro");
+    temaBtn.textContent = "☀️";
+  }
+  temaBtn.addEventListener("click", () => {
+    document.body.classList.toggle("modo-escuro");
+    const escuro = document.body.classList.contains("modo-escuro");
+    temaBtn.textContent = escuro ? "☀️" : "🌙";
+    localStorage.setItem("biblioteca-tema", escuro ? "escuro" : "claro");
+  });
+
+  inicializarAutenticacao();
   loadData();
 </script>
 </body></html>
