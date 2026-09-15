@@ -1,11 +1,9 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
+<html>
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Biblioteca Virtual — E.E. Bárbara Heliodora</title>
-
-  <!-- Ícone da aba do navegador (favicon) -->
+  
   <link rel="icon" type="image/jpeg" href="logo.jpg" />
 
   <!-- Meta tags de compartilhamento (aparecem quando o link é enviado no WhatsApp, Instagram etc) -->
@@ -617,8 +615,8 @@
   //
   // IMPORTANTE: substitua os dois valores abaixo pelos dados públicos do seu
   // projeto Supabase. Nunca coloque uma service_role key neste arquivo.
-  const SUPABASE_URL = "https://pzisjwgzwlqwxhrrysil.supabase.co";
-  const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_AxH0vZYkqzVTLjG-xlcFMg_LlRsIPDb";
+  const SUPABASE_URL = "COLE_AQUI_A_URL_DO_SEU_PROJETO_SUPABASE";
+  const SUPABASE_PUBLISHABLE_KEY = "COLE_AQUI_A_CHAVE_PUBLICA_DO_SEU_PROJETO_SUPABASE";
 
   const supabaseClient = supabase.createClient(
     SUPABASE_URL,
@@ -676,13 +674,10 @@
   // Lista fixa de gêneros disponíveis para os livros
   const GENEROS = ["Ficção", "Aventura", "Fantasia", "Romance", "Terror e Suspense", "Infantil", "Biografia", "Didático", "Poesia", "Quadrinhos", "Mangás", "Outro"];
 
-  // ---- Persistência (JSONBin.io - banco de dados na internet) ----
-  // Guardamos tudo (livros + emails das bibliotecárias) num único "bin",
-  // então funciona de qualquer navegador ou computador, desde que o site
-  // esteja hospedado com endereço https:// (não abrindo o arquivo direto).
-  const JSONBIN_BIN_ID = "6a7d21d7f5f4af5e290ed271";
-  const JSONBIN_MASTER_KEY = "$2a$10$31/POkHbZwICjUCaKtK4hOgEdLQX4K0WlN1ucKJW0dyhObnaBRWFe";
-  const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`;
+  // ---- Persistência (Supabase Database) ----
+  // Os dados da biblioteca ficam no banco do Supabase.
+  // A tabela "biblioteca_dados" deve ter uma única linha (id = 1).
+  // IMPORTANTE: nenhuma chave secreta do Supabase deve ficar neste arquivo.
 
   const DEFAULT_LIBRARY_EMAILS = [
     { name: "Luciara Perereia", email: "luciara.perereia@educacao.mg.gov.br" },
@@ -696,24 +691,42 @@
 
   async function loadData() {
     try {
-      const response = await fetch(`${JSONBIN_URL}/latest`, {
-        headers: { "X-Master-Key": JSONBIN_MASTER_KEY }
-      });
-      if (!response.ok) throw new Error(`Erro HTTP ${response.status}`);
-      const data = await response.json();
-      books = (data.record && Array.isArray(data.record.books)) ? data.record.books : [];
-      libraryEmails = (data.record && Array.isArray(data.record.libraryEmails) && data.record.libraryEmails.length)
-        ? data.record.libraryEmails
-        : DEFAULT_LIBRARY_EMAILS.slice();
-      bookLimit = (data.record && typeof data.record.bookLimit === "number" && data.record.bookLimit >= 1)
-        ? data.record.bookLimit
-        : 1;
+      const { data, error } = await supabaseClient
+        .from("biblioteca_dados")
+        .select("books, library_emails, book_limit")
+        .eq("id", 1)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (data) {
+        books = Array.isArray(data.books) ? data.books : [];
+        libraryEmails = Array.isArray(data.library_emails) && data.library_emails.length
+          ? data.library_emails
+          : DEFAULT_LIBRARY_EMAILS.slice();
+        bookLimit = Number.isInteger(data.book_limit) && data.book_limit >= 1
+          ? data.book_limit
+          : 1;
+      } else {
+        // Primeira execução: cria a linha inicial somente se a sessão for de administradora.
+        books = [];
+        libraryEmails = DEFAULT_LIBRARY_EMAILS.slice();
+        bookLimit = 1;
+
+        if (isAdminLoggedIn) {
+          const { error: insertError } = await supabaseClient
+            .from("biblioteca_dados")
+            .insert([{ id: 1, books, library_emails: libraryEmails, book_limit: bookLimit }]);
+          if (insertError && insertError.code !== "23505") throw insertError;
+        }
+      }
     } catch (err) {
-      console.error("Erro ao carregar dados do JSONBin:", err);
+      console.error("Erro ao carregar dados do Supabase:", err);
       books = [];
       libraryEmails = DEFAULT_LIBRARY_EMAILS.slice();
+      bookLimit = 1;
       document.getElementById("loadingMsg").textContent =
-        "Não foi possível carregar os dados salvos. Verifique sua conexão com a internet.";
+        "Não foi possível carregar os dados salvos. Verifique a configuração do Supabase e sua conexão com a internet.";
       document.getElementById("loadingMsg").style.color = "#ffb3b3";
       renderAll();
       return;
@@ -723,19 +736,28 @@
   }
 
   async function saveData() {
+    if (!isAdminLoggedIn) {
+      await modalAlerta("Somente a bibliotecária pode salvar alterações.");
+      return false;
+    }
+
     try {
-      const response = await fetch(JSONBIN_URL, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Master-Key": JSONBIN_MASTER_KEY
-        },
-        body: JSON.stringify({ books, libraryEmails, bookLimit })
-      });
-      if (!response.ok) throw new Error(`Erro HTTP ${response.status}`);
+      const { error } = await supabaseClient
+        .from("biblioteca_dados")
+        .upsert({
+          id: 1,
+          books,
+          library_emails: libraryEmails,
+          book_limit: bookLimit,
+          updated_at: new Date().toISOString()
+        }, { onConflict: "id" });
+
+      if (error) throw error;
+      return true;
     } catch (err) {
-      console.error("Erro ao salvar dados no JSONBin:", err);
-      await modalAlerta("Não foi possível salvar os dados agora. Verifique sua conexão com a internet e tente novamente.");
+      console.error("Erro ao salvar dados no Supabase:", err);
+      await modalAlerta("Não foi possível salvar os dados agora. Verifique as configurações do Supabase e tente novamente.");
+      return false;
     }
   }
 
