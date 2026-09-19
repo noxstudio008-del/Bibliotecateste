@@ -3,10 +3,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Biblioteca Virtual — E.E. Bárbara Heliodora</title>
-  
+
   <link rel="icon" type="image/jpeg" href="logo.jpg" />
 
-  <!-- Meta tags de compartilhamento (aparecem quando o link é enviado no WhatsApp, Instagram etc) -->
   <meta name="description" content="Biblioteca Virtual da E.E. Bárbara Heliodora — consulte o acervo, agende livros e acompanhe empréstimos." />
   <meta property="og:title" content="Biblioteca Virtual — E.E. Bárbara Heliodora" />
   <meta property="og:description" content="Consulte o acervo, agende livros e acompanhe empréstimos da biblioteca da escola." />
@@ -21,7 +20,6 @@
   <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <style>
     :root {
       --cor-fundo-pagina: #16255c;
@@ -223,6 +221,13 @@
       flex: 1;
       min-width: 140px;
     }
+    .linha-email button {
+      width: auto;
+      margin-top: 0;
+      font-size: 0.78rem;
+      padding: 4px 10px;
+      border-radius: 999px;
+    }
     .estatisticas-grid {
       display: flex;
       flex-wrap: wrap;
@@ -418,7 +423,6 @@
   </style>
 </head>
 <body>
-  <!-- Modal estilizado, usado no lugar de alert()/confirm()/prompt() do navegador -->
   <div id="modalOverlay" class="modal-overlay">
     <div class="modal-box">
       <p id="modalMensagem"></p>
@@ -440,7 +444,7 @@
   <div id="trigger" title="Área da Bibliotecária">
     <svg viewBox="0 0 24 24"><path d="M12 12c2.7 0 4.9-2.2 4.9-4.9S14.7 2.2 12 2.2 7.1 4.4 7.1 7.1 9.3 12 12 12zm0 2.5c-3.3 0-9.8 1.6-9.8 4.9v2.4h19.6v-2.4c0-3.3-6.5-4.9-9.8-4.9z"/></svg>
   </div>
-  <div id="temaBtn" title="Alternar tema claro/escuro">⏾</div>
+  <div id="temaBtn" title="Alternar tema claro/escuro">🌙</div>
 
   <section id="loginPanel">
     <h2>Login da Bibliotecária</h2>
@@ -483,8 +487,9 @@
     </form>
 
     <h2 style="margin-top:18px;">Emails das Bibliotecárias</h2>
-    <p style="color:#5c7ca3; font-size:0.85rem; margin-top:-6px;">Esses emails aparecem como opções no formulário de Contato. Edite aqui sempre que precisar trocar algum.</p>
+    <p style="color:#5c7ca3; font-size:0.85rem; margin-top:-6px;">Esses emails aparecem como opções no formulário de Contato. Adicione, edite ou remova conforme precisar.</p>
     <div id="libraryEmailsForm"></div>
+    <button type="button" id="addEmailBtn" class="btn-secundario" style="margin-top:8px; width:auto; padding:6px 16px; border-radius:999px;">+ Adicionar bibliotecária</button>
     <button type="button" id="saveEmailsBtn" style="margin-top:10px;">Salvar Emails</button>
     <p id="emailsFeedback"></p>
 
@@ -615,10 +620,7 @@
   const SUPABASE_URL = "https://pzisjwgzwlqwxhrrysil.supabase.co";
   const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_AxH0vZYkqzVTLjG-xlcFMg_LlRsIPDb";
 
-  const supabaseClient = supabase.createClient(
-    SUPABASE_URL,
-    SUPABASE_PUBLISHABLE_KEY
-  );
+  const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
   let isAdminLoggedIn = false;
   let currentSupabaseUser = null;
@@ -662,24 +664,40 @@
     });
   }
 
-  // Credenciais do EmailJS (usadas no formulário de contato)
+  // Credenciais do EmailJS (usadas no formulário de contato e nos avisos automáticos)
   const EMAILJS_PUBLIC_KEY = "_9nbVoub4jzy9q5Vn";
   const EMAILJS_SERVICE_ID = "service_nq1njcg";
   const EMAILJS_TEMPLATE_ID = "template_nn3n09j";
   emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
 
+  async function enviarEmailAutomatico({ paraEmail, mensagem, nomeRemetente = "Biblioteca Virtual", emailRemetente = "biblioteca@escola.gov.br" }) {
+    try {
+      await emailjs.send(
+        EMAILJS_SERVICE_ID,
+        EMAILJS_TEMPLATE_ID,
+        {
+          from_name: nomeRemetente,
+          from_email: emailRemetente,
+          reply_to: emailRemetente,
+          message: mensagem,
+          to_email: paraEmail
+        },
+        { publicKey: EMAILJS_PUBLIC_KEY }
+      );
+      return true;
+    } catch (err) {
+      console.error("Erro ao enviar email automático:", err);
+      return false;
+    }
+  }
+
   // Lista fixa de gêneros disponíveis para os livros
   const GENEROS = ["Ficção", "Aventura", "Fantasia", "Romance", "Terror e Suspense", "Infantil", "Biografia", "Didático", "Poesia", "Quadrinhos", "Mangás", "Outro"];
 
   // ---- Persistência (Supabase Database) ----
-  // Os dados da biblioteca ficam no banco do Supabase.
-  // A tabela "biblioteca_dados" deve ter uma única linha (id = 1).
-  // IMPORTANTE: nenhuma chave secreta do Supabase deve ficar neste arquivo.
-
   const DEFAULT_LIBRARY_EMAILS = [
     { name: "Luciara Perereia", email: "luciara.perereia@educacao.mg.gov.br" },
-    { name: "Regiane Borges", email: "regiane.borges@educacao.mg.gov.br" },
-    { name: "Terceira Bibliotecária", email: "terceiro.email@educacao.mg.gov.br" }
+    { name: "Regiane Borges", email: "regiane.borges@educacao.mg.gov.br" }
   ];
 
   let books = [];
@@ -705,7 +723,6 @@
           ? data.book_limit
           : 1;
       } else {
-        // Primeira execução: cria a linha inicial somente se a sessão for de administradora.
         books = [];
         libraryEmails = DEFAULT_LIBRARY_EMAILS.slice();
         bookLimit = 1;
@@ -723,7 +740,7 @@
       libraryEmails = DEFAULT_LIBRARY_EMAILS.slice();
       bookLimit = 1;
       document.getElementById("loadingMsg").textContent =
-        "Não foi possível carregar os dados salvos. Verifique a configuração do Supabase e sua conexão com a internet.";
+        "Não foi possível carregar os dados salvos. Verifique sua conexão com a internet.";
       document.getElementById("loadingMsg").style.color = "#ffb3b3";
       renderAll();
       return;
@@ -737,7 +754,6 @@
       await modalAlerta("Somente a bibliotecária pode salvar alterações.");
       return false;
     }
-
     try {
       const { error } = await supabaseClient
         .from("biblioteca_dados")
@@ -753,7 +769,7 @@
       return true;
     } catch (err) {
       console.error("Erro ao salvar dados no Supabase:", err);
-      await modalAlerta("Não foi possível salvar os dados agora. Verifique as configurações do Supabase e tente novamente.");
+      await modalAlerta("Não foi possível salvar os dados agora. Verifique sua conexão e tente novamente.");
       return false;
     }
   }
@@ -764,8 +780,6 @@
     renderLibraryEmailsForm();
     renderContactRecipients();
     document.getElementById("bookLimitInput").value = bookLimit;
-
-    // A visibilidade do painel administrativo é controlada pela sessão do Supabase.
   }
 
   // ---- Abas ----
@@ -832,7 +846,6 @@
     const filtroAutor = document.getElementById("filtroAutor");
     const valorAtual = filtroAutor.value || "Todos";
 
-    // Lista de autores distintos entre os livros disponíveis, ignorando vazios
     const autoresDisponiveis = [...new Set(
       books.filter(b => b.status === "available" && b.autor && b.autor.trim())
         .map(b => b.autor.trim())
@@ -850,7 +863,6 @@
       filtroAutor.appendChild(option);
     });
 
-    // Mantém a seleção anterior se ela ainda existir na lista
     if ([...filtroAutor.options].some(o => o.value === valorAtual)) {
       filtroAutor.value = valorAtual;
     }
@@ -866,7 +878,6 @@
     const atrasados = books.filter(b => b.status === "reading" && b.dataEntrega && diasDeAtraso(b.dataEntrega) > 0).length;
     const totalNaFila = books.reduce((soma, b) => soma + ((b.fila || []).length), 0);
 
-    // Gênero mais popular (mais livros cadastrados naquele gênero)
     const contagemGeneros = {};
     books.forEach(b => {
       const g = b.genero || "Outro";
@@ -931,7 +942,6 @@
     }
 
     const generosPresentes = GENEROS.filter(g => disponiveis.some(b => b.genero === g));
-    // Livros sem gênero definido (dados antigos) caem em "Outro"
     const semGenero = disponiveis.filter(b => !GENEROS.includes(b.genero));
 
     generosPresentes.forEach(genero => {
@@ -1000,13 +1010,19 @@
     linhaPrincipal.appendChild(acoes);
     li.appendChild(linhaPrincipal);
 
-    // Campinho que aparece dentro do próprio item ao clicar em "Agendar"
+    // Campinho que aparece dentro do próprio item ao clicar em "Agendar".
+    // Pede nome E email agora — o email é usado pra mandar o comprovante
+    // de devolução quando o livro voltar.
     const formInline = document.createElement("div");
     formInline.className = "agendar-inline";
 
     const nomeInput = document.createElement("input");
     nomeInput.type = "text";
     nomeInput.placeholder = "Seu nome";
+
+    const emailInput = document.createElement("input");
+    emailInput.type = "email";
+    emailInput.placeholder = "Seu email (pro comprovante de devolução)";
 
     const confirmarBtn = document.createElement("button");
     confirmarBtn.className = "btn-confirmar";
@@ -1020,6 +1036,7 @@
     erroSpan.className = "erro-inline";
 
     formInline.appendChild(nomeInput);
+    formInline.appendChild(emailInput);
     formInline.appendChild(confirmarBtn);
     formInline.appendChild(cancelarBtn);
     formInline.appendChild(erroSpan);
@@ -1033,32 +1050,35 @@
     cancelarBtn.onclick = () => {
       formInline.classList.remove("aberto");
       nomeInput.value = "";
+      emailInput.value = "";
       erroSpan.classList.remove("visivel");
     };
 
-    confirmarBtn.onclick = () => agendarLivro(book.id, nomeInput.value, erroSpan);
-    nomeInput.addEventListener("keydown", (e) => {
+    confirmarBtn.onclick = () => agendarLivro(book.id, nomeInput.value, emailInput.value, erroSpan);
+    emailInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
         e.preventDefault();
-        agendarLivro(book.id, nomeInput.value, erroSpan);
+        agendarLivro(book.id, nomeInput.value, emailInput.value, erroSpan);
       }
     });
 
     return li;
   }
 
-  async function agendarLivro(id, nomeDigitado, erroSpan) {
+  async function agendarLivro(id, nomeDigitado, emailDigitado, erroSpan) {
     const book = books.find(b => b.id === id);
     if (!book) return;
 
-    if (!nomeDigitado || !nomeDigitado.trim()) {
+    const nome = (nomeDigitado || "").trim();
+    const email = (emailDigitado || "").trim();
+
+    if (!nome || !email) {
       if (erroSpan) {
-        erroSpan.textContent = "Digite seu nome para agendar.";
+        erroSpan.textContent = "Preencha seu nome e email para agendar.";
         erroSpan.classList.add("visivel");
       }
       return;
     }
-    const nome = nomeDigitado.trim();
 
     const emprestadosComEssePleitor = books.filter(
       b => b.status === "reading" && b.reader && b.reader.trim().toLowerCase() === nome.toLowerCase()
@@ -1079,6 +1099,7 @@
 
     book.status = "reading";
     book.reader = nome;
+    book.readerEmail = email;
     const sugestao = new Date();
     sugestao.setDate(sugestao.getDate() + 14);
     book.dataEntrega = sugestao.toISOString().split("T")[0];
@@ -1126,6 +1147,7 @@
       filaBtn.textContent = "Entrar na fila";
       acoes.appendChild(filaBtn);
 
+      // A devolução é só da bibliotecária — evita bagunça/devoluções falsas.
       if (isAdminLoggedIn) {
         const dateInput = document.createElement("input");
         dateInput.type = "date";
@@ -1217,7 +1239,6 @@
     await modalAlerta(`Pronto! Você está na fila de espera de "${book.title}". Avisamos por email assim que ele voltar.`);
   }
 
-
   function renderAtrasados() {
     const lateList = document.getElementById("lateBooksList");
     lateList.innerHTML = "";
@@ -1265,11 +1286,26 @@
       emailInput.dataset.idx = idx;
       emailInput.dataset.campo = "email";
 
+      const removerBtn = document.createElement("button");
+      removerBtn.type = "button";
+      removerBtn.className = "btn-perigo";
+      removerBtn.textContent = "Remover";
+      removerBtn.onclick = () => {
+        libraryEmails.splice(idx, 1);
+        renderLibraryEmailsForm();
+      };
+
       linha.appendChild(nomeInput);
       linha.appendChild(emailInput);
+      linha.appendChild(removerBtn);
       container.appendChild(linha);
     });
   }
+
+  document.getElementById("addEmailBtn").addEventListener("click", () => {
+    libraryEmails.push({ name: "", email: "" });
+    renderLibraryEmailsForm();
+  });
 
   function renderContactRecipients() {
     const select = document.getElementById("contactRecipient");
@@ -1293,7 +1329,7 @@
     if (!book) return;
 
     const novoTitulo = await modalPrompt("Novo título do livro:", book.title);
-    if (novoTitulo === null) return; // cancelou a edição
+    if (novoTitulo === null) return;
     const tituloFinal = novoTitulo.trim() ? novoTitulo.trim() : book.title;
 
     const novoAutor = await modalPrompt("Autor do livro (deixe em branco se não souber):", book.autor || "");
@@ -1313,7 +1349,6 @@
       }
     }
 
-    // Só troca título, autor e gênero — status, leitor e data de devolução continuam como estavam
     book.title = tituloFinal;
     book.autor = autorFinal;
     book.genero = generoFinal;
@@ -1336,39 +1371,46 @@
     if (!isAdminLoggedIn) { await modalAlerta("Somente a bibliotecária pode registrar devoluções."); return; }
     const book = books.find(b => b.id === id);
     if (!book) return;
+
+    const tituloLivro = book.title;
+    const dataDevolucaoFormatada = formatarData(new Date().toISOString().split("T")[0]);
+    const emailDoLeitor = book.readerEmail;
+    const nomeDoLeitor = book.reader;
+
     book.status = "available";
     delete book.reader;
+    delete book.readerEmail;
     delete book.dataEntrega;
+
+    // Comprovante de devolução pro leitor que devolveu
+    let avisoComprovante = "";
+    if (emailDoLeitor) {
+      const enviado = await enviarEmailAutomatico({
+        paraEmail: emailDoLeitor,
+        mensagem: `Olá, ${nomeDoLeitor}! Confirmamos a devolução do livro "${tituloLivro}" na Biblioteca Virtual em ${dataDevolucaoFormatada}. Obrigado por devolver em dia e cuidar bem dos livros da nossa biblioteca!`
+      });
+      avisoComprovante = enviado
+        ? ` Comprovante enviado para ${nomeDoLeitor}.`
+        : ` Não foi possível enviar o comprovante para ${nomeDoLeitor} agora.`;
+    }
 
     // Se tem gente esperando na fila, avisa o primeiro por email
     let avisoFila = "";
     if (book.fila && book.fila.length > 0) {
       const proximo = book.fila.shift();
-      try {
-        await emailjs.send(
-          EMAILJS_SERVICE_ID,
-          EMAILJS_TEMPLATE_ID,
-          {
-            from_name: "Biblioteca Virtual",
-            from_email: "biblioteca@escola.gov.br",
-            reply_to: "biblioteca@escola.gov.br",
-            message: `Olá, ${proximo.name}! O livro "${book.title}" que você estava esperando já está disponível na Biblioteca Virtual. Corre lá agendar antes que outra pessoa pegue!`,
-            to_email: proximo.email
-          },
-          { publicKey: EMAILJS_PUBLIC_KEY }
-        );
-        avisoFila = ` ${proximo.name} foi avisado(a) por email.`;
-      } catch (err) {
-        console.error("Erro ao avisar a fila de espera:", err);
-        avisoFila = ` Não foi possível avisar ${proximo.name} por email agora — avise manualmente se puder.`;
-      }
+      const enviado = await enviarEmailAutomatico({
+        paraEmail: proximo.email,
+        mensagem: `Olá, ${proximo.name}! O livro "${tituloLivro}" que você estava esperando já está disponível na Biblioteca Virtual. Corre lá agendar antes que outra pessoa pegue!`
+      });
+      avisoFila = enviado
+        ? ` ${proximo.name} foi avisado(a) por email.`
+        : ` Não foi possível avisar ${proximo.name} por email agora.`;
     }
 
     await saveData();
     renderLists();
-    if (avisoFila) await modalAlerta(`Devolução registrada.${avisoFila}`);
+    await modalAlerta(`Devolução registrada.${avisoComprovante}${avisoFila}`);
   }
-
 
   async function salvarDataEntrega(id, novaData) {
     if (!isAdminLoggedIn) { await modalAlerta("Somente a bibliotecária pode alterar a data de entrega."); return; }
@@ -1408,10 +1450,7 @@
     btn.textContent = "Entrando...";
     feedback.textContent = "";
 
-    const { data, error } = await supabaseClient.auth.signInWithPassword({
-      email,
-      password
-    });
+    const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
 
     if (error) {
       console.error("Erro no login:", error);
@@ -1443,10 +1482,22 @@
   });
 
   // ---- Leitor de código de barras (ISBN) / QR Code ----
-  // Usa a câmera do celular/computador pra ler o código de barras do livro
-  // (o ISBN, que é o código de barras padrão em livros) e busca automaticamente
-  // o título e autor numa base de dados gratuita (Open Library).
+  // A biblioteca html5-qrcode (bem pesada) só é carregada quando a
+  // bibliotecária clica em "Escanear" — assim a página não fica lenta
+  // pra quem só vem consultar os livros (a grande maioria das visitas).
   let scannerAtivo = null;
+  let html5QrcodeCarregado = false;
+
+  function carregarScriptScanner() {
+    return new Promise((resolve, reject) => {
+      if (html5QrcodeCarregado) { resolve(); return; }
+      const script = document.createElement("script");
+      script.src = "https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js";
+      script.onload = () => { html5QrcodeCarregado = true; resolve(); };
+      script.onerror = () => reject(new Error("Falha ao carregar o leitor de código de barras."));
+      document.head.appendChild(script);
+    });
+  }
 
   document.getElementById("scanBtn").addEventListener("click", async () => {
     if (!isAdminLoggedIn) { await modalAlerta("Somente a bibliotecária pode escanear livros."); return; }
@@ -1454,6 +1505,16 @@
     const container = document.getElementById("scanContainer");
     const feedback = document.getElementById("scanFeedback");
     container.style.display = "block";
+    feedback.textContent = "Carregando o leitor...";
+
+    try {
+      await carregarScriptScanner();
+    } catch (err) {
+      console.error(err);
+      feedback.textContent = "Não foi possível carregar o leitor. Verifique sua conexão com a internet.";
+      return;
+    }
+
     feedback.textContent = "Aponte a câmera para o código de barras (ISBN) na contracapa do livro.";
 
     try {
@@ -1498,7 +1559,6 @@
     feedback.textContent = `Código lido: ${codigoLido}. Buscando informações...`;
     await pararScanner();
 
-    // Só livros têm ISBN (8 ou 13 dígitos numéricos); um QR Code comum não serve pra essa busca
     const apenasNumeros = codigoLido.replace(/[^0-9]/g, "");
     if (apenasNumeros.length < 8) {
       await modalAlerta(`Código lido: ${codigoLido}. Não parece ser um ISBN válido — preencha os dados manualmente.`);
@@ -1530,10 +1590,11 @@
     inputs.forEach(input => {
       const idx = parseInt(input.dataset.idx);
       const campo = input.dataset.campo;
-      novaLista[idx][campo] = input.value.trim();
+      if (novaLista[idx]) novaLista[idx][campo] = input.value.trim();
     });
-    libraryEmails = novaLista;
+    libraryEmails = novaLista.filter(e => e.name || e.email);
     await saveData();
+    renderLibraryEmailsForm();
     renderContactRecipients();
     const feedback = document.getElementById("emailsFeedback");
     feedback.style.color = "#1b5e20";
@@ -1627,44 +1688,30 @@
     feedback.style.color = "#3a6ea8";
     feedback.textContent = "Enviando sua mensagem...";
 
-    try {
-      await emailjs.send(
-        EMAILJS_SERVICE_ID,
-        EMAILJS_TEMPLATE_ID,
-        {
-          from_name: name,
-          from_email: email,
-          reply_to: email,
-          message: message,
-          to_email: toEmail
-        },
-        { publicKey: EMAILJS_PUBLIC_KEY }
-      );
+    const enviado = await enviarEmailAutomatico({ paraEmail: toEmail, mensagem: message, nomeRemetente: name, emailRemetente: email });
+    if (enviado) {
       feedback.style.color = "#1b5e20";
       feedback.textContent = "Mensagem enviada com sucesso! Obrigado por entrar em contato.";
       e.target.reset();
       renderContactRecipients();
-    } catch (err) {
-      console.error("Erro ao enviar email:", err);
-      const detalhe = (err && (err.text || err.message)) ? ` (${err.text || err.message})` : "";
+    } else {
       feedback.style.color = "#b71c1c";
-      feedback.textContent = `Não foi possível enviar a mensagem agora${detalhe}. Tente novamente em instantes.`;
-    } finally {
-      submitBtn.disabled = false;
-      submitBtn.textContent = "Enviar Mensagem";
+      feedback.textContent = "Não foi possível enviar a mensagem agora. Tente novamente em instantes.";
     }
+    submitBtn.disabled = false;
+    submitBtn.textContent = "Enviar Mensagem";
   });
 
   // ---- Alternar tema claro/escuro ----
   const temaBtn = document.getElementById("temaBtn");
   if (localStorage.getItem("biblioteca-tema") === "escuro") {
     document.body.classList.add("modo-escuro");
-    temaBtn.textContent = "☀︎︎";
+    temaBtn.textContent = "☀️";
   }
   temaBtn.addEventListener("click", () => {
     document.body.classList.toggle("modo-escuro");
     const escuro = document.body.classList.contains("modo-escuro");
-    temaBtn.textContent = escuro ? "☀︎︎" : "⏾";
+    temaBtn.textContent = escuro ? "☀️" : "🌙";
     localStorage.setItem("biblioteca-tema", escuro ? "escuro" : "claro");
   });
 
