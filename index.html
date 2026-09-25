@@ -18,7 +18,6 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&display=swap" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     :root {
@@ -444,7 +443,7 @@
   <div id="trigger" title="Área da Bibliotecária">
     <svg viewBox="0 0 24 24"><path d="M12 12c2.7 0 4.9-2.2 4.9-4.9S14.7 2.2 12 2.2 7.1 4.4 7.1 7.1 9.3 12 12 12zm0 2.5c-3.3 0-9.8 1.6-9.8 4.9v2.4h19.6v-2.4c0-3.3-6.5-4.9-9.8-4.9z"/></svg>
   </div>
-  <div id="temaBtn" title="Alternar tema claro/escuro">🌙</div>
+  <div id="temaBtn" title="Alternar tema claro/escuro">⏾</div>
 
   <section id="loginPanel">
     <h2>Login da Bibliotecária</h2>
@@ -668,10 +667,29 @@
   const EMAILJS_PUBLIC_KEY = "_9nbVoub4jzy9q5Vn";
   const EMAILJS_SERVICE_ID = "service_nq1njcg";
   const EMAILJS_TEMPLATE_ID = "template_nn3n09j";
-  emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
+
+  // O EmailJS só é carregado na hora em que um email de verdade precisa ser
+  // enviado (contato, comprovante de devolução, aviso de fila) — assim ele
+  // não pesa no carregamento inicial da página pra quem só vem consultar.
+  let emailjsCarregado = false;
+  function carregarEmailJS() {
+    return new Promise((resolve, reject) => {
+      if (emailjsCarregado) { resolve(); return; }
+      const script = document.createElement("script");
+      script.src = "https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js";
+      script.onload = () => {
+        emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
+        emailjsCarregado = true;
+        resolve();
+      };
+      script.onerror = () => reject(new Error("Falha ao carregar o serviço de email."));
+      document.head.appendChild(script);
+    });
+  }
 
   async function enviarEmailAutomatico({ paraEmail, mensagem, nomeRemetente = "Biblioteca Virtual", emailRemetente = "biblioteca@escola.gov.br" }) {
     try {
+      await carregarEmailJS();
       await emailjs.send(
         EMAILJS_SERVICE_ID,
         EMAILJS_TEMPLATE_ID,
@@ -1454,7 +1472,13 @@
 
     if (error) {
       console.error("Erro no login:", error);
-      feedback.textContent = "Email ou senha incorretos.";
+      if (error.message === "Invalid login credentials") {
+        feedback.textContent = "Email ou senha incorretos.";
+      } else if (error.message && error.message.toLowerCase().includes("email not confirmed")) {
+        feedback.textContent = "Esse email ainda não foi confirmado. Confirme o cadastro (verifique a caixa de entrada) ou desative a confirmação de email no painel do Supabase.";
+      } else {
+        feedback.textContent = `Não foi possível entrar: ${error.message}`;
+      }
     } else {
       document.getElementById("adminPassword").value = "";
       feedback.textContent = "";
@@ -1706,12 +1730,12 @@
   const temaBtn = document.getElementById("temaBtn");
   if (localStorage.getItem("biblioteca-tema") === "escuro") {
     document.body.classList.add("modo-escuro");
-    temaBtn.textContent = "☀️";
+    temaBtn.textContent = "☀︎︎";
   }
   temaBtn.addEventListener("click", () => {
     document.body.classList.toggle("modo-escuro");
     const escuro = document.body.classList.contains("modo-escuro");
-    temaBtn.textContent = escuro ? "☀️" : "🌙";
+    temaBtn.textContent = escuro ? "☀︎︎" : "⏾";
     localStorage.setItem("biblioteca-tema", escuro ? "escuro" : "claro");
   });
 
